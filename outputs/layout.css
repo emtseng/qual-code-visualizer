@@ -1,0 +1,38 @@
+
+table{
+  border-collapse:collapse;
+}
+
+table tr {
+  border-bottom:1px solid #D3D3D3;
+}
+
+th, td {
+  padding: 15px;
+}
+
+
+/* a:link {
+    color: inherit;
+    text-decoration: inherit;
+}
+
+a:visited {
+    color: inherit;
+    text-decoration: inherit;
+}
+
+a:hover {
+    color: inherit;
+    text-decoration: underline;
+}
+
+a:active {
+    color: inherit;
+    text-decoration: inherit;
+} */
+
+td {
+    border: 1px solid black;
+    text-align: center
+}

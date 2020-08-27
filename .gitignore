@@ -1,0 +1,10 @@
+.vscode/
+py27/
+*.pyc
+Icon
+
+*.csv
+all_csvs/
+tech_csvs/
+outputs/*.html
+outputs/*.csv
