@@ -62,3 +62,10 @@ python code-extract.py [update] <project title> <output directory> <codebook> [m
 `master.csv` is for doing updates. It contains all the quotes from all the interviews, and any other CSV is used to update values in that `master.csv`.
 
 The script will produce a folder of HTML in the output directory specified. Open the resulting ``outputdir/index.html`` in a browser to navigate through your codes.
+
+## Shortcuts
+
+```cli
+python reformat.py -i csvs/ -o reformatted-csvs/ -c codebook-combined-all.csv
+python code-extract.py Remote-Clinic outputs/ codebook-combined-all.csv reformatted-csvs/
+```

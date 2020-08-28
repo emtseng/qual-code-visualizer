@@ -32,12 +32,12 @@ def add_line(line, outfile_name, num_codes, allCodes, codeCorrections):
         comma_split = line.strip().split(',')
         # Hacks for codes that contained commas for the Remote Clinic study
         if 'Consultant unfamiliarity with specific platforms' in line:
-            print "\nbefore: ", comma_split
+            # print "\nbefore: ", comma_split
             i = comma_split.index('"Consultant unfamiliarity with specific platforms (e.g. Android vs. iOS')
             joined_code = " / ".join(comma_split[i:i+2])
             comma_split[i] = joined_code
             comma_split = comma_split[:i+1] + comma_split[i+2:]
-            print "after: ", comma_split, "\n"
+            # print "after: ", comma_split, "\n"
         if 'Consultant unfamiliarity with specific apps' in line:
             # print "\nbefore: ", comma_split
             i = comma_split.index('"Consultant unfamiliarity with specific apps / social media (e.g. Waze')
@@ -46,13 +46,18 @@ def add_line(line, outfile_name, num_codes, allCodes, codeCorrections):
             comma_split = comma_split[:i+1] + comma_split[i+4:]
             # print "after: ", comma_split, "\n"
         # General code merging
-        codes = list(filter(lambda x: x != '', comma_split[-num_codes:]))
+        codes = comma_split[-num_codes:]
         merged_codes = list()
         for code in codes:
-            strippedCode = urlSafe(stripQuotesSpace( code ))
-            if strippedCode not in allCodes:
-                merged_code, codeCorrections = mergeCodes(strippedCode, allCodes, codeCorrections, skip=False)
-                merged_codes.append(merged_code)
+            if code == "":
+                merged_code = ""
+            else:
+                strippedCode = urlSafe(stripQuotesSpace( code ))
+                if strippedCode not in allCodes:
+                    merged_code, codeCorrections = mergeCodes(strippedCode, allCodes, codeCorrections, skip=False)
+                else:
+                    merged_code = strippedCode
+            merged_codes.append(merged_code)
         speaker = comma_split[0]
         utt = sanitize(",".join(comma_split[1:-num_codes]))
         if speaker != '' and utt != '':
@@ -61,6 +66,7 @@ def add_line(line, outfile_name, num_codes, allCodes, codeCorrections):
                 outfile_line += '{}, '.format(merged_code)
             outfile.write(outfile_line+'\n')
     outfile.close()
+    return codeCorrections
 
 
 def reformat(in_folder_name, out_folder_name, codes, codeCorrections):
@@ -87,7 +93,7 @@ def reformat(in_folder_name, out_folder_name, codes, codeCorrections):
                         num_codes = len(line.split(',')[1:]) - 1
                         print outfile_name + ' num_codes: {}'.format(num_codes)
                     else:
-                        add_line(line, outfile_name, num_codes, codes, codeCorrections)
+                        codeCorrections = add_line(line, outfile_name, num_codes, codes, codeCorrections)
             infile.close()
 
 
