@@ -4,7 +4,9 @@ This repo contains a visualizer for a qualitatively coded dataset. Given a codeb
 
 This repo is templatable, so have at it.
 
-## Setup
+TODO: Convert to python3
+
+## 0) Setup
 
 We'll run this tool in a python virtualenv. Ensure you have a python2 installation. Then:
 
@@ -20,7 +22,7 @@ To deactivate the virtualenv:
 deactivate
 ```
 
-## Data
+## 1) Prepare data
 
 Place the codebook in your top-level directory. It should be a CSV should be formatted as:
 ```csv
@@ -37,13 +39,22 @@ Name: text , code1 , code2 , ...
 ```
 where `Name: text` is a string for some text that Name has said, and each code is a string.
 
-## Running codes
+## 2) Reformat transcripts
+
+The transcripts will need to be reformatted for use in the code extractor. To do this, run:
+```cli
+python reformat.py -i <input directory> -o <output directory>
+```
+
+You should then use the reformatted transcripts in your output directory for step 3.
+
+## 3) Run codes
 
 This repo contains a script (``code-extract.py``) that will process either a directory of transcripts or a list of transcripts. Usage is as follows:
 
 ```cli
-python code-extract.py [update] <output directory> <codebook> [master.csv] [<csv1> <csv2>] ...
-python code-extract.py [update] <output directory> <codebook> [master.csv] [<csv directory>] ...
+python code-extract.py [update] <project title>  <output directory> <codebook> [master.csv] <csv1> [<csv2>] ...
+python code-extract.py [update] <project title> <output directory> <codebook> [master.csv] <csv directory> ...
 ```
 
 `update` is optional, and specifies that the transcripts are already processed by `code-extract.py` previously. This will regenerate output HTML and CSVs by updating based on the CSVs included. All CSVs should be included if one wants to update.

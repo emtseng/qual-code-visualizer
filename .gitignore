@@ -6,5 +6,5 @@ Icon
 *.csv
 all_csvs/
 tech_csvs/
-outputs/*.html
-outputs/*.csv
+outputs/html/*.html
+outputs/csv/*.csv

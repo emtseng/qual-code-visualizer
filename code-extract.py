@@ -36,8 +36,7 @@ import errno
 import csv
 #import unicodecsv
 import argparse
-import editdistance
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 #import lxml.html
 #from lxml.html import builder as E
 #from yattag import doc
@@ -45,71 +44,44 @@ import markup
 import operator
 from pathlib import Path
 
-
-def urlSafe( string ):
-  urlSafe = string.replace( '/', '_' )
-  urlSafe = urlSafe.replace( '?', '_' )
-  urlSafe = urlSafe.replace( ' ', '_' )
-  return urlSafe
+from util import urlSafe, stripQuotesSpace, mergeCodes
+from generators import genIndex, genHistograms, genCodeHTML, genCodeCounts, genCodeCSV, genCodePerTransHTML, genHeaderMenu, genPosterHTML, genStylesheet
 
 
-codeCorrections = {}
-
-def mergeCodes( code, codes ):
-  """ If an unrecognized code is found in a transcript file, check for nearby ones by edit distance. Prompt user to merge. """
-
-  if( code in codeCorrections ):
-    print "Using '" + codeCorrections[code] + "' instead of '" + code + "'"
-    code = codeCorrections[code]
-    return code
-
-  #print "Unrecognized code: ", code
-  distances = {}
-  for possibleCode in codes:
-    distances[editdistance.eval( code, possibleCode )] = possibleCode
-
-  for i, key in enumerate(sorted(distances)):
-    #if( i > 2 ):   # only bother the user to go through top 3 closest codes
-    #  break
-    #answer = raw_input("Should '" + code + "' have been '" + distances[key] + "'?  [y/N] ")
-    #if( answer == 'y' or answer == 'Y' ):
-    print "Replacing '"+ code +"' with '" + distances[key]
-    codeCorrections[code] = distances[key]
-    code = distances[key]
-    return code  # It's always working well with edit distance, so let's just do it without asking
-
-  return ''  # Signifies no suitable match found
-
-class Quote(object):
-  """ The Quote class contains all the data from a particular quote
+################################################################################
+# Class Post
+################################################################################
+class Post(object):
+  """ The Post class contains all the data from a particular post
 
       Attributes:
-        speaker: person quoted
-        quote: the actual quote
-        note: any special markers made during coding
-        codes: list of codes
+        thread <Thread>: the thread in which the post is contained
+        postID <int>: the ID of the post within the thread, used for internal linking
+        poster <Post>: the person who posted
+        text <str>: the actual content of the post
+        note <str>: any special markers made during coding
+        codes <list>: list of codes
   """
 
-  def __init__(self, interview, quoteNum, speaker=' ', text=' ', codes=[]):
-    """ Returns a Quote object """
+  def __init__(self, thread, postID, poster=' ', text=' ', codes=[]):
+    """ Returns a Post object """
 
-    self.interview = interview
-    #self.interviewFile = interviewFile
-    #self.interviewName = interviewFile
-    self.quoteID = quoteNum
-    self.speaker = speaker
+    self.thread = thread
+    self.postID = postID
+    self.poster = poster
     self.text = text
     self.codes = codes  # Should be a tuple
 
   def printHTML(self, page, codeLinkTo='all' ):
-    """ Prints a table row for quote """
+    """ Prints a table row for a post """
 
-    # codeLinkTo  specifies whether should link to code page for all interviews or code page for its interview
-    page.tr( id=str(self.quoteID) )
-    page.td( self.speaker )
+    # codeLinkTo specifies whether should link to code page for all threads or code page for its thread
+    page.tr( id=str(self.postID) )
+    page.td( )
+    page.a(self.poster, href="{}.html".format(urlSafe(self.poster)))
     page.td.close()
     page.td( )
-    page.a( self.text, href=self.interview.outFileBase + '.html#' + str(self.quoteID) )
+    page.a( self.text, href=self.thread.outFileBase + '.html#' + str(self.postID) )
     page.td.close()
     page.td(  )
     for i, code in enumerate(self.codes):
@@ -120,59 +92,62 @@ class Quote(object):
       if( codeLinkTo == 'all' ):
         page.a( code, href=urlSafe(code) + '.html' )
       elif( codeLinkTo == 'this_interview' ):
-        page.a( code, href=urlSafe(code) + '_' + self.interview.name + '.html' )
+        page.a( code, href=urlSafe(code) + '_' + self.thread.title + '.html' )
       else:
-        raise NameError('invalid parameter')
+        raise NameError('invalid parameter: codeLinkTo needs to be all or this_interview')
 
     page.td.close()
     page.tr.close()
 
 
 ################################################################################
-# Class Interview
+# Class Thread
 ################################################################################
-class Interview(object):
-  """ The interview class contains all the data from a particular interview
+class Thread(object):
+  """ The Thread class contains all the data from a particular thread
 
       Attributes:
-        name: the interviewee's name
-        quotes: an array of note, quote, codes triples
+        title <str>: the title of the thread
+        posts <list>: a list of triples: (note, post, codes)
   """
 
-  def __init__(self, name, outFileDir ):
-    """ Returns an Interview object whose name is name, whose output files have path prefix outFileDir, and whose basename should be outFileBase """
+  def __init__(self, title, outFileDir ):
+    """ Returns a Thread object whose title is title, whose output files have path prefix outFileDir, and whose basename should be outFileBase """
 
-    self.name = name
+    self.title = urlSafe(title)
     self.outFileDir = outFileDir
-    self.outFileBase = name
-    self.quotes = []
-    self.codeHistogram = {}
+    self.outFileBase = urlSafe(title)
+    self.posts = []
+    self.codeHistogram = defaultdict(int)
 
-  def addQuote(self, quote):
-    """ Adds a line from the CSV to the quotes list """
+  def addPost(self, post):
+    """ Adds a line from the CSV to the posts list """
 
-    self.quotes.append(quote)
+    self.posts.append(post)
 
   def toHTML(self):
-    """ Prints HTML for this interview to a file in output directory """
-
-    with open( self.outFileDir + '/' + self.outFileBase+'.html', 'w' ) as outFile:   # Should be of form, e.g.,  Johnson.html
-      header = "Interview with "  + self.name
-      #footer = "This is the end."
-      styles = ( 'layout.css' )
-
+    """ Prints HTML for this thread to a file in output directory """
+    filename = "{}/html/{}.html".format(self.outFileDir, self.outFileBase)
+    print 'writing interview: ', filename
+    with open( filename, 'w' ) as outFile:   # Should be of form, e.g., Johnson.html
+      header = self.outFileBase
       page = markup.page()
-      page.init( title=header, header=header, css=styles, charset='utf-8' )
-      page.br()
-      page.a( "Index", color="blue", href="index.html")
-      page.br( )
-      page.br( )
-      page.br( )
-      page.br( )
+      page = genHeaderMenu(page, header)
+
+      page.div(class_="num_posts")
+      page.add("quotes={}".format(len(self.posts)))
+      page.div.close()
 
       page.table( style="width: 100%" )
-      for quote in self.quotes:
-        quote.printHTML(page, 'this_interview')
+
+      page.tr(class_="table-header")
+      page.th('speaker')
+      page.th('quote')
+      page.th('codes')
+      page.tr.close()
+
+      for post in self.posts:
+        post.printHTML(page, 'this_interview')
 
       page.table.close()
 
@@ -182,368 +157,195 @@ class Interview(object):
   def toCSV(self):
     """ Prints CSV for this interview to a file in output directory """
 
-    with open( self.outFileDir + '/' + self.outFileBase+'.csv', 'w' ) as outFile:   # Should be of form, e.g.,  Johnson.html
-      fields = ['interview','quoteID','speaker','text','code']
+    with open( self.outFileDir + '/csv/' + self.outFileBase + '.csv', 'w' ) as outFile:   # Should be of form, e.g.,  Johnson.html
+      fields = ['interview','postID','poster','text','code']
       writer = csv.writer( outFile, dialect='excel' )
       writer.writerow(fields)
-      for quote in self.quotes:
-        row = [quote.interview.name,quote.quoteID,quote.speaker,quote.text]
-        row.extend(quote.codes)
+      for post in self.posts:
+        row = [post.name, post.postID, post.poster, post.text]
+        row.extend(post.codes)
         writer.writerow(row)
 
+################################################################################
+# Class Poster
+################################################################################
+class Poster(object):
+  """ The Poster class contains all the data from a particular poster
 
+      Attributes:
+        name <str>: the username of the poster
+        threads <set str>: the thread_titles for the Threads in which a poster has posted
+        posts <list Post>: the posts a poster has posted
+        codes <dict>: counts of the times a poster has posted something with a code:
+          {
+            code 1 <str>: count <int>
+          }
+  """
 
-#  def toHTMLcode(self, code):
-#    """ Returns string consisting of HTML for this interview """
-#
-#
-#    with open( self.outFileDir + '/' + self.outFileBase+'_'+urlSafe(code)+'.html', 'w' ) as outFile:
-#      header = "All references to "  + code + " in interview " + self.name
-#      #footer = "This is the end."
-#      styles = ( 'layout.css' )
-#
-#      page = markup.page()
-#      page.init( title=header, header=header, css=styles, charset='utf-8' )
-#      page.br( )
-#      page.a( "Index", color="blue", href="index.html")
-#      page.br( )
-#      page.br( )
-#      page.br( )
-#      page.br( )
-#
-#      page.table( style="width: 100%" )
-#      for quote in self.quotes:
-#        if( code in quote.codes ):
-#          quote.printHTML(page)
-#
-#      page.table.close()
-#
-#      outFile.write( str(page) )
+  def __init__(self, name=' '):
+    """ Returns a Poster object """
+    self.name = name
+    self.threads = set()
+    self.posts = list()
+    self.codes = defaultdict(int)
+  
+  def addToThreads(self, thread_title):
+    self.threads.add(thread_title)
+  
+  def addToPosts(self, post):
+    self.posts.append(post)
 
-
-def stripQuotesSpace( string ):
-  if( len(string) < 2 ):
-    return string.strip()
-  if( string[0] == '"' and string[-1] == '"' ):
-    return string[1:-1].strip()
-  return string.strip()
-
-
-def genIndex( interviews, outputdir, codes ):
-  """ Generates an index linking to all the main pages """
-
-  histogram = {}
-  for code in codes:
-    for interview in interviews:
-      for quote in interview.quotes:
-        if( code in quote.codes ):
-          if( code in histogram ):
-            histogram[code] += 1
-          else:
-            histogram[code] = 1
-
-  freqSortedCodes = sorted(histogram.items(), key=operator.itemgetter(1), reverse=True )
-
-  with open(outputdir + '/' + 'index.html', 'w') as outFile:
-    with open(outputdir + '/code_counts.csv', mode="w+") as outCSV:
-      header = "Interviews and codes"
-      #footer = "This is the end."
-      styles = ( 'layout.css' )
-
-      page = markup.page()
-      page.init( title=header, header=header, css=styles, charset='utf-8' )
-      page.br()
-      page.a( "Index", color="blue", href="index.html")
-      page.add( "&nbsp;&nbsp;-&nbsp;&nbsp;" )
-      page.a( "Histograms", color="blue", href="histograms.html")
-      page.br()
-      page.br()
-      page.br()
-      page.br()
-
-      page.table( style="width: 100%" )
-      page.tr()
-      # Write interview list
-      page.td(width="50%")
-      for interview in interviews:
-        page.a( interview.name, href=interview.outFileBase + '.html' )
-        page.br()
-      page.td.close()
-      # Write sorted list of codes with frequencies, also CSV
-      page.td(width="50%")
-      freqs = "code,count\n"
-      for codeFreqPair in freqSortedCodes:
-        page.a( codeFreqPair[0], href=urlSafe(codeFreqPair[0]) + '.html' )
-        page.add(' &nbsp;&nbsp;(' + str(histogram[codeFreqPair[0]]) + ')')
-        freqs += codeFreqPair[0] + ',' + str(histogram[codeFreqPair[0]]) + '\n'
-        page.br()
-        #page.add('&nbsp;&nbsp;-&nbsp;&nbsp;')
-      page.td.close()
-      page.tr.close()
-      page.table.close()
-
-      outFile.write( str(page) )
-      outCSV.write(freqs)
-
-  return histogram
-
-def genHistograms( interviews, outputdir, codes, codeCountsPerSpeaker ):
-  """ Generates a page with various histograms """
-
-
-  with open(outputdir + '/' + 'histograms.html', 'w') as outFile:
-    header = "Interviews and codes"
-    #footer = "This is the end."
-    styles = ( 'layout.css' )
-
-    page = markup.page()
-    page.init( title=header, header=header, css=styles, charset='utf-8' )
-    page.br()
-    page.a( "Index", color="blue", href="index.html")
-    page.br()
-    page.br()
-    page.br()
-    page.br()
-
-    page.table( style="width: 100%" )
-
-    freqSortedCodeCounts = sorted(codeCountsPerSpeaker.items(), cmp=lambda x,y: cmp(len(x), len(y)), key=operator.itemgetter(1), reverse=True )
-    page.table( style="width: 100%" )
-    for codeListPair in freqSortedCodeCounts:
-      page.tr()
-      page.td( codeListPair[0] )
-      page.td( str(len(codeListPair[1])) )
-      page.td()
-      for speaker in codeListPair[1]:
-        page.add( speaker + '&nbsp;&nbsp;&nbsp;')
-      page.td.close()
-      page.tr.close()
-    page.table.close()
-
-    outFile.write( str(page) )
-
-
-
-
-def genCodeHTML( interviews, outputdir, code ):
-  """ Searches through all interviews and extracts all references to each code, writes to an HTML output """
-
-  with open(outputdir + '/' + urlSafe(code) + '.html', 'w') as outFile:
-    header = "All references to "  + code
-    #footer = "This is the end."
-    styles = ( 'layout.css' )
-
-    page = markup.page()
-    page.init( title=header, header=header, css=styles, charset='utf-8' )
-    page.br()
-    page.a( "Index", color="blue", href="index.html")
-    page.br( )
-    page.br( )
-    page.br( )
-    page.br( )
-
-    page.table( style="width: 100%" )
-
-    for interview in interviews:
-      for quote in interview.quotes:
-        if( code in quote.codes ):
-          quote.printHTML(page)
-
-    page.table.close()
-
-    outFile.write( str(page) )
+  def addToCodeCounts(self, codes):
+    for code in codes:
+      self.codes[code] += 1
+  
 
 ################################################################################
-# Generate and read master CSVs. These contain all quotes from all interviews
+# Generate and read master CSVs. These contain all posts from all posts
 # previously processed
 ################################################################################
-def genMasterCSV( masterFilename, interviews ):
-  """ Generates a single CSV with all quotes from all interviews """
+
+def genMasterCSV( masterFilename, threads ):
+  """ Generates a single CSV with all posts from all threads """
 
   with open(masterFilename, 'w') as outFile:
-    fields = ['interviewName','quoteID','speaker','text']
-    writer = csv.writer( outFile, dialect='excel' )
+    fields = ['threadTitle', 'postID', 'poster', 'text']
+    writer = csv.writer(outFile, dialect='excel')
     writer.writerow(fields)
-    for interview in interviews:
-      for quote in interview.quotes:
-        row = [quote.interview.name,quote.quoteID,quote.speaker,quote.text]
-        row.extend(quote.codes)
+    for thread in threads:
+      for post in thread.posts:
+        row = [thread.title, post.postID, post.poster, post.text]
+        row.extend(post.codes)
         writer.writerow(row)
 
 
 def readMasterCSV( masterFilename, outputdir ):
-  """ Generates a single CSV with all quotes from all interviews """
+  """ Reads master CSV in to initiate update. TODO """
 
   with open(masterFilename, 'r') as inFile:
-    interviewNames = []
-    interviews = {}
-    #fields = ['interview','quoteID','speaker','text','code']
-    reader = csv.DictReader( inFile, dialect='excel', fieldnames=['interviewName','quoteID','speaker','text'], restkey='codes' )
+    threads = {}
+    reader = csv.DictReader( inFile, dialect='excel', fieldnames=['threadTitle','postID','poster','text'], restkey='codes' )
     next(reader)
     for row in reader:
 
-      interviewName = row['interviewName']
-      if( interviewName not in interviews ):
-        interviews[interviewName] = Interview( interviewName, outputdir )
+      threadTitle = row['threadTitle']
+      if( threadTitle not in threads ):
+        threads[threadTitle] = Thread( threadTitle, outputdir )
 
       if 'codes' in row:
-        quote = Quote( interviews[interviewName], row['quoteID'], row['speaker'], row['text'], row['codes'] )
+        post = Post( threads[threadTitle], row['postID'], row['poster'], row['text'], row['codes'] )
       else:
-        quote = Quote( interviews[interviewName], row['quoteID'], row['speaker'], row['text'] )
+        post = Post( threads[threadTitle], row['postID'], row['poster'], row['text'] )
 
-      interviews[interviewName].addQuote( quote )
+      threads[threadTitle].addPost( post )
 
-    return interviews
-
-
-################################################################################
-# Gen and read CSV files, one for each
-################################################################################
-def genCodeCSV( interviews, outputdir, code ):
-  """ Searches through all interviews and extracts all references to each code, writes to a CSV output """
-
-
-  with open(outputdir + '/' + urlSafe(code) + '.csv', 'w') as outFile:
-    fields = ['interview','quoteID','speaker','text','code']
-
-    writer = csv.writer( outFile, dialect='excel' )
-
-    writer.writerow(fields)
-
-    for interview in interviews:
-      for quote in interview.quotes:
-        if( code in quote.codes ):
-          row = [quote.interview.name,quote.quoteID,quote.speaker,quote.text]
-          row.extend(quote.codes)
-          writer.writerow(row)
-
-
-
-
-def genCodePerTransHTML( interviews, outputdir, code ):
-  """ For each interview, output a page for each code with all the quotes coded as such """
-
-  for interview in interviews:
-    with open(outputdir + '/' + urlSafe(code) + '_' + interview.name + '.html', 'w') as outFile:
-      header = "All references to '"  + code + "' in interview '" + interview.name + "'"
-      #footer = "This is the end."
-      styles = ( 'layout.css' )
-
-      page = markup.page()
-      page.init( title=header, header=header, css=styles, charset='utf-8' )
-      page.br()
-      page.a( "Index", color="blue", href="index.html")
-      page.br( )
-      page.br( )
-      page.br( )
-      page.br( )
-
-      page.table( style="width: 100%" )
-
-      for quote in interview.quotes:
-        if( code in quote.codes ):
-          quote.printHTML(page)
-
-      page.table.close()
-
-      outFile.write( str(page) )
+    return threads
 
 
 ################################################################################
 # Reading CSVs and generating internal data structures
 ################################################################################
-def readGeneratedCSVs( masterFilename, transcripts, codes, outputdir, codeCountsPerSpeaker ):
-  """ Reads in generated CSVs as output by genCodeCSV() """
+def readGeneratedCSVs( masterFilename, threads, codes, outputdir, codeCountsPerPoster ):
+  """ Reads in generated CSVs as output by genCodeCSV() TODO """
 
-  interviews = readMasterCSV(masterFilename, outputdir )
+  threads = readMasterCSV(masterFilename, outputdir)
 
-  numInterviews = 0
-  numQuotes = 0
-  lastPerson = ''
-  for transcript in transcripts:
-    with open(transcript,'r') as transFile:
-      # Read in transcript, populate new Interview object and codeDict
+  # numInterviews = 0
+  # numQuotes = 0
+  # lastPerson = ''
+  for thread in threads:
+    with open(thread,'r') as transFile:
+      # Read in thread, populate new Interview object and codeDict
       #transReader = unicodecsv.reader( transFile, dialect='excel', encoding='utf-8' )
-      transReader = csv.DictReader( transFile, dialect='excel', fieldnames=['interviewName','quoteID','speaker','text'], restkey='codes' )
+      transReader = csv.DictReader( transFile, dialect='excel', fieldnames=['threadTitle','postID','poster','text'], restkey='codes' )
       next(transReader)
       for row in transReader:
-        # format is [quote.interview.name,quote.quoteID,quote.speaker,quote.text]
-        interviewName = row['interviewName']
-        if( interviewName not in interviews ):
-          print "Error: couldn't find interview " + interviewName + " for entry in " + transcript
+        threadTitle = row['threadTitle']
+        if( threadTitle not in threads ):
+          print "Error: couldn't find interview " + threadTitle + " for entry in " + thread.title
         else:
-          # Find quote within interview
+          # Find post within thread
           found = False
-          for quote in interviews[interviewName].quotes:
-            if( quote.quoteID == row['quoteID'] ):
+          for post in threads[threadTitle].posts:
+            if( post.postID == row['postID'] ):
               found = True
-              quote.speaker = row['speaker']
-              quote.text = row['text']
+              post.poster = row['poster']
+              post.text = row['text']
               if( 'codes' in row ):
-                quote.codes = row['codes']
+                post.codes = row['codes']
               else:
-                quote.codes = []
+                post.codes = []
           if( not found ):
-            print "Error: couldn't find quote " + row['quoteID'] + " for entry in " + transcript
+            print "Error: couldn't find post " + row['postID'] + " for entry in " + thread.title
 
-  #interviewList = interviews.values().sort(key=lambda x: x.name )
-  interviewList = sorted(interviews.values(), key=lambda x: x.name)
-  return interviewList
+  threadList = sorted(threads.values(), key=lambda x: x.title)
+
+  return threadList
 
 
-def readOriginalCSVs( transcripts, codes, outputdir, codeCountsPerSpeaker):
+def readOriginalCSVs( originalCSVs, allCodes, outputdir, codeCounts ):
   """ Reads in CSVs in their original post-Google spreadsheet form """
 
-  numInterviews = 0
-  numQuotes = 0
-  interviews = []
-  lastPerson = ''
-  for transcript in transcripts:
-    with open(transcript,'r') as transFile:
-      transcriptFileName = os.path.splitext(os.path.basename(transcript))[0]
-      numInterviews += 1
-      # Read in transcript, populate new Interview object and codeDict
-      #transReader = unicodecsv.reader( transFile, dialect='excel', encoding='utf-8' )
-      transReader = csv.reader( transFile, dialect='excel' )
-      interview = Interview(transcriptFileName, outputdir )
-      for row in transReader:
-        # first value is note, second is quote, following fields are codes
-        #note = stripQuotesSpace( row[0] )
-        quote = stripQuotesSpace( row[0] )
-        if( quote != '' ):
-          numQuotes += 1
-          # Check if we have a : to separate speaker from text
-          if( ':' in quote ):
-            (person,text) = quote.split(':', 1)
-          else:
-            #person = ''  # FIXME: before had quote assigned to person, and blank to text. Seemed wrong
-            #text = quote
-            #person = lastPerson # FIXME: before had quote assigned to person, and blank to text. Seemed wrong
-            person = lastPerson
-            text = quote # should just use the last person for this quote
+  numThreads = 0
+  numPosts = 0
+  threads = []
+  allCodeCorrections = {}
+  allPosters = {}
 
-          lastPerson = person
+  for originalCSV in originalCSVs:
+    with open(originalCSV, 'r') as transFile:
+      threadFileName = os.path.splitext(os.path.basename(originalCSV))[0]
 
-          quoteCodes = []
-          for code in row[1:]:
-            strippedCode = stripQuotesSpace( code )
-            #print strippedCode
+      # Read in thread, populate new Thread object
+      numThreads += 1
+      thread = Thread(threadFileName, outputdir)
+
+      for line in transFile:
+        # Our reformatted threads have the format:
+        # speaker =DELIM= utterance =DELIM= tag, tag, tag, ...
+        (poster, text, tags) = line.split('=DELIM=')
+        if (text != ''):
+          numPosts += 1
+
+          # Process post codes
+          post_codes = tags.split(', ')
+          strippedCodes = []
+          for code in post_codes:
+            strippedCode = urlSafe(stripQuotesSpace( code ))
             if( strippedCode == '' ):
               continue
-            if( strippedCode not in codes):
-              correctedCode = mergeCodes( strippedCode, codes )
+            if( strippedCode not in allCodes):
+              correctedCode, allCodeCorrections = mergeCodes( strippedCode, allCodes, allCodeCorrections )
               if( correctedCode == '' ):
-                print "Skipping unrecognized code in '" + strippedCode + "' in file " + transcript + " that could not be merged"
+                print "Skipping unrecognized code in '" + strippedCode + "' in file " + thread.title + " that could not be merged"
                 continue
               strippedCode = correctedCode
-            quoteCodes.append( strippedCode )
-            codeCountsPerSpeaker[strippedCode].add( person )
+            strippedCodes.append( strippedCode )
+            # Add the poster to the set of people who have said something with this code
+            codeCounts[strippedCode]['posters'].add( poster )
+            # Add the thread to the set of threads that have used this code
+            codeCounts[strippedCode]['threads'].add( thread.title )
+            # Increment the counter of posts with this code
+            codeCounts[strippedCode]['posts'] += 1
+            # Add this code to the thread's code histogram
+            thread.codeHistogram[strippedCode] += 1
 
-          quote = Quote( interview, numQuotes, person, text, quoteCodes )
-          interview.addQuote( quote )
-      interviews.append(interview)
+          post = Post(thread, numPosts, poster, text, strippedCodes)
+          thread.addPost(post)
 
-  return [interviews,codeCountsPerSpeaker]
+          # Process poster
+          if poster not in allPosters:
+            allPosters[poster] = Poster(poster)
+          
+          allPosters[poster].addToPosts(post)
+          allPosters[poster].addToThreads(thread.title)
+          allPosters[poster].addToCodeCounts(strippedCodes)
+
+      threads.append(thread)
+
+    transFile.close()
+
+  return threads, codeCounts, allPosters
 
 
 ################################################################################
@@ -552,6 +354,7 @@ def readOriginalCSVs( transcripts, codes, outputdir, codeCountsPerSpeaker):
 def main():
   parser = argparse.ArgumentParser(description='Process coded transcripts given a codebook.')
   parser.add_argument('-u', '--update', type=str, help="update the indicated master.csv")
+  parser.add_argument('project', metavar="project", help="name of project")
   parser.add_argument('outputdir', metavar='outputdir', help="directory where outputs will be sent. If it doesn't exist it will be created")
   parser.add_argument('codebook', metavar='codebook', help='the codebook CSV file')
   parser.add_argument('transcripts', metavar='transcripts', help='one or more transcript CSV files, or a directory', nargs='+')
@@ -559,10 +362,15 @@ def main():
   args = vars(parser.parse_args())
 
   outputdir = args['outputdir']
+  if outputdir[-1] == '/':
+    outputdir = outputdir[:-1]
+  
+  project_title = args['project']
 
-# Check outputdir
+  # Check outputdir, make subfolders
   try:
-    os.makedirs(outputdir)
+    os.makedirs(outputdir + '/html/')
+    os.makedirs(outputdir + '/csv/')
   except OSError as exception:
     if exception.errno != errno.EEXIST:
       if( not os.path.isdir(outputdir) ):
@@ -571,76 +379,72 @@ def main():
 
 
   codes = []
-  codeCountsPerSpeaker = {}
+  codeCounts = {}
   with open(args['codebook'], 'r') as codeFile:
     # Read in the codes
     codeReader = csv.reader(codeFile, dialect='excel')
     for row in codeReader:
       # first value is code, second is description. We ignore description for now
-      code = stripQuotesSpace( row[0] )
+      code = urlSafe(stripQuotesSpace( row[0] ))
       if( code != '' ):
         codes.append( code )
-        codeCountsPerSpeaker[code] = set()
+        codeCounts[code] = {
+          'posters': set(),
+          'threads': set(),
+          'posts': 0
+        }
 
     # Is this an update?
     if( args['update'] ):
-      interviews = readGeneratedCSVs( args['update'], args['transcripts'], codes, outputdir, codeCountsPerSpeaker )
+      threads = readGeneratedCSVs( args['update'], args['transcripts'], codes, outputdir, codeCounts )
     else:
       transcripts_path = Path(args['transcripts'][0])
       # Are we analyzing an entire directory?
       if transcripts_path.is_dir():
         originalCSVs = [args['transcripts'][0] + path.name for path in Path(args['transcripts'][0]).glob('*.csv')]
-        print originalCSVs
+        print 'Processing directory: ', originalCSVs
       else:
         originalCSVs = args['transcripts']
-      interviews,codeCountsPerSpeaker = readOriginalCSVs( originalCSVs, codes, outputdir, codeCountsPerSpeaker )
+      
+      # Read the original CSVs
+      threads, codeCounts, posters = readOriginalCSVs( originalCSVs, codes, outputdir, codeCounts )
+
       # Generate a histogram HTML page
-      genHistograms( interviews, outputdir, codes, codeCountsPerSpeaker )
+      genHistograms( threads, outputdir, codeCounts, project_title )
+
+      # Write code_counts.csv
+      genCodeCounts( codeCounts, outputdir )
 
     # Write out a master CSV
-    genMasterCSV( outputdir + '/master.csv', interviews )
+    genMasterCSV( outputdir + '/csv/master.csv', threads )
+
+    # Write out individual posters' pages. TODO: make it an instance method?
+    genPosterHTML(posters, outputdir)
 
     # Write out an interview HTML page
-    for interview in interviews:
+    for interview in threads:
       interview.toHTML()
 
     # Write out individual HTML for each code
     for code in codes:
-      genCodeHTML( interviews, outputdir, code )
+      genCodeHTML( threads, outputdir, code, project_title )
 
     # Write out individual CSV's for each code
     for code in codes:
-      genCodeCSV( interviews, outputdir, code )
+      genCodeCSV( threads, outputdir, code )
 
     # Write out individual HTML for each code, interview pair
     for code in codes:
-      genCodePerTransHTML( interviews, outputdir, code )
+      genCodePerTransHTML( threads, outputdir, code )
 
-    # Generate the main index.html and writes
-    genIndex( interviews, outputdir, codes )
+    # Generate the main index.html
+    genIndex( threads, outputdir, codeCounts, project_title )
 
-    #for code in codes:
-    #  print code
-    #
-    #  for quote in codeDict[code]:
-    #    print quote.Speaker, " :    ", quote.Quote , "\n"
-    #
-    #  print '*'*80
+    # Generate the stylesheet from the main one
+    genStylesheet( outputdir )
 
-
-    # Pretty print HTML of transcript
-    #print interview.printHTML()
-
-    # From each interview, print out quotes grouped by codes / interviews
-    #
-    # Print out quotes grouped by codes, from all interviews
-    #
-    # Counts across all the interviews, co-occurrence of codes
-    #
-
-
-
-
+    # Print a direct link to the index file for viewing
+    print '\nDone! View output at: {}'.format(os.path.abspath(outputdir+'/html/index.html'))
 
 if __name__ == '__main__':
   main()
