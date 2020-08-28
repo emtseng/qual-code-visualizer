@@ -28,10 +28,8 @@ def add_line(line, outfile_name, num_codes):
     with open(outfile_name, mode="a+") as outfile:
         comma_split = line.strip().split(',')
         tags = comma_split[-num_codes:]
-        quote = ",".join(comma_split[:-num_codes])
-        colon_split = quote.split(': ')
-        speaker = colon_split[0]
-        utt = sanitize(":".join(colon_split[1:]))
+        speaker = comma_split[0]
+        utt = sanitize(",".join(comma_split[1:-num_codes]))
         if speaker != '' and utt != '': 
             outfile_line = '{} =DELIM= {} =DELIM= '.format(speaker, utt)
             for tag in tags:

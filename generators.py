@@ -73,10 +73,11 @@ def genIndex(threads, outputdir, codeCounts, project_title):
 		page.td.close()
 		page.tr.close()
 
-		# Write thread list
+		# Write sorted list of threads
 		page.tr()
 		page.td(class_="index-threads")
-		for thread in threads:
+		sorted_threads = sorted(threads, key=lambda x: x.title)
+		for thread in sorted_threads:
 			page.a(thread.title, href=thread.outFileBase + '.html')
 			page.br()
 		page.td.close()
