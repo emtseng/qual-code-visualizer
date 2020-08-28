@@ -315,7 +315,7 @@ def readOriginalCSVs( originalCSVs, allCodes, outputdir, codeCounts ):
             if( strippedCode == '' ):
               continue
             if( strippedCode not in allCodes):
-              correctedCode, allCodeCorrections = mergeCodes( strippedCode, allCodes, allCodeCorrections )
+              correctedCode, allCodeCorrections = mergeCodes( strippedCode, allCodes, allCodeCorrections, skip=True ) #set skip to false to correct codes to nearest code by edit distance
               if( correctedCode == '' ):
                 print "Skipping unrecognized code in '" + strippedCode + "' in file " + thread.title + " that could not be merged"
                 continue

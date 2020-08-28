@@ -2,9 +2,12 @@
 py27/
 *.pyc
 Icon
+.DS_Store
 
 *.csv
 all_csvs/
 tech_csvs/
 outputs/html/*.html
 outputs/csv/*.csv
+
+*.zip

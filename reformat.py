@@ -12,8 +12,10 @@ Outputs: reformatted data in a given directory
 import os
 import errno
 import argparse
+import csv
 
-from util import urlSafe
+from util import urlSafe, mergeCodes, stripQuotesSpace
+
 
 def sanitize(txt):
     # quotes = ["'", '"']
@@ -24,33 +26,58 @@ def sanitize(txt):
     #         return sanitize(txt[1:-1])
     return txt
 
-def add_line(line, outfile_name, num_codes):
+
+def add_line(line, outfile_name, num_codes, allCodes, codeCorrections):
     with open(outfile_name, mode="a+") as outfile:
         comma_split = line.strip().split(',')
-        tags = comma_split[-num_codes:]
+        # Hacks for codes that contained commas for the Remote Clinic study
+        if 'Consultant unfamiliarity with specific platforms' in line:
+            print "\nbefore: ", comma_split
+            i = comma_split.index('"Consultant unfamiliarity with specific platforms (e.g. Android vs. iOS')
+            joined_code = " / ".join(comma_split[i:i+2])
+            comma_split[i] = joined_code
+            comma_split = comma_split[:i+1] + comma_split[i+2:]
+            print "after: ", comma_split, "\n"
+        if 'Consultant unfamiliarity with specific apps' in line:
+            # print "\nbefore: ", comma_split
+            i = comma_split.index('"Consultant unfamiliarity with specific apps / social media (e.g. Waze')
+            joined_code = " / ".join(comma_split[i:i+4])
+            comma_split[i] = joined_code
+            comma_split = comma_split[:i+1] + comma_split[i+4:]
+            # print "after: ", comma_split, "\n"
+        # General code merging
+        codes = list(filter(lambda x: x != '', comma_split[-num_codes:]))
+        merged_codes = list()
+        for code in codes:
+            strippedCode = urlSafe(stripQuotesSpace( code ))
+            if strippedCode not in allCodes:
+                merged_code, codeCorrections = mergeCodes(strippedCode, allCodes, codeCorrections, skip=False)
+                merged_codes.append(merged_code)
         speaker = comma_split[0]
         utt = sanitize(",".join(comma_split[1:-num_codes]))
-        if speaker != '' and utt != '': 
+        if speaker != '' and utt != '':
             outfile_line = '{} =DELIM= {} =DELIM= '.format(speaker, utt)
-            for tag in tags:
-                outfile_line += '{}, '.format(tag)
+            for merged_code in merged_codes:
+                outfile_line += '{}, '.format(merged_code)
             outfile.write(outfile_line+'\n')
     outfile.close()
 
-def reformat(in_folder_name, out_folder_name):
+
+def reformat(in_folder_name, out_folder_name, codes, codeCorrections):
     for filename in os.listdir(in_folder_name):
         participantID = filename[:-4]
         if filename == '.DS_Store':
             pass
-        elif '.csv' not in filename: # it's a directory, so recursively call
-            reformat(in_folder_name + filename + '/', out_folder_name)
-        else: # it's a file
+        elif '.csv' not in filename:  # it's a directory, so recursively call
+            reformat(in_folder_name + filename + '/', out_folder_name, codes, codeCorrections)
+        else:  # it's a file
             infile_name = in_folder_name + filename
             with open(infile_name) as infile:
                 num_codes = 0
-                outfile_name = out_folder_name + urlSafe("{}.csv".format(participantID))
+                outfile_name = out_folder_name + \
+                    urlSafe("{}.csv".format(participantID))
                 with open(outfile_name, mode="w+") as outfile:
-                    print 'creating ' + outfile_name
+                    print '\ncreating ' + outfile_name
                 outfile.close()
                 for i, line in enumerate(infile):
                     if line.replace(',', '').strip() == '':
@@ -60,14 +87,18 @@ def reformat(in_folder_name, out_folder_name):
                         num_codes = len(line.split(',')[1:]) - 1
                         print outfile_name + ' num_codes: {}'.format(num_codes)
                     else:
-                        add_line(line, outfile_name, num_codes)
+                        add_line(line, outfile_name, num_codes, codes, codeCorrections)
             infile.close()
 
 
-if __name__=="__main__":
-    parser = argparse.ArgumentParser(description='Reformat coded data for use in code-extract.py.')
-    parser.add_argument('-i', type=str, help="directory where your raw data is housed")
-    parser.add_argument('-o', type=str, help="directory where the reformatted data will be sent. If it doesn't exist, it will be created.")
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description='Reformat coded data for use in code-extract.py.')
+    parser.add_argument(
+        '-i', type=str, help="directory where your raw data is housed")
+    parser.add_argument(
+        '-o', type=str, help="directory where the reformatted data will be sent. If it doesn't exist, it will be created.")
+    parser.add_argument('-c', type=str, help="codebook to use for merging")
 
     args = vars(parser.parse_args())
     inputdir = args['i']
@@ -82,17 +113,29 @@ if __name__=="__main__":
         os.makedirs(outputdir)
     except OSError as exception:
         if exception.errno != errno.EEXIST:
-            if( not os.path.isdir(outputdir) ):
+            if(not os.path.isdir(outputdir)):
                 print "Error: outputdir specified as", outputdir, "exists but is not a directory"
                 raise
-    
+
     # Then the inputdir
     try:
         os.makedirs(inputdir)
     except OSError as exception:
         if exception.errno != errno.EEXIST:
-            if( not os.path.isdir(outputdir) ):
+            if(not os.path.isdir(outputdir)):
                 print "Error: inputdir specified as", outputdir, "exists but is not a directory"
                 raise
+
+    # Then extract codes from the codebook
+    codes = []
+    codeCorrections = {}
+    with open(args['c'], 'r') as codeFile:
+        # Read in the codes
+        codeReader = csv.reader(codeFile, dialect='excel')
+        for row in codeReader:
+        # first value is code, second is description. We ignore description for now
+            code = urlSafe(stripQuotesSpace( row[0] ))
+            if( code != '' ):
+                codes.append( code )
     
-    reformat(inputdir, outputdir)
+    reformat(inputdir, outputdir, codes, codeCorrections)
