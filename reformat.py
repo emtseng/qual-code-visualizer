@@ -25,7 +25,6 @@ def sanitize(txt):
     return txt
 
 def add_line(line, outfile_name, num_codes):
-    # print 'num_codes', num_codes
     with open(outfile_name, mode="a+") as outfile:
         comma_split = line.strip().split(',')
         tags = comma_split[-num_codes:]
