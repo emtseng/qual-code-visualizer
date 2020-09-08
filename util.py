@@ -37,28 +37,14 @@ def mergeCodes( code, codes, codeCorrections, skip=False ):
   if skip:
     return '', codeCorrections
 
-  # Manual mappings for Remote Clinic paper
+  # Example of codes to manually map
   mappings = {
     "Checkup": "Privacy checkups",
-    "Out of scope": "Client's concern is out of clinic scope",
-    "Consultant educates client on tech": "Consultant as educator",
-    "Connection issue": "Challenge: Remote connection difficulties",
-    "Consultant unfamiliar with a given platform / technology": "Consultant unfamiliarity with specific platforms (e.g. Android vs. iOS / Windows vs Mac)",
-    "Not enough time": "Not enough time / Prioritization",
-    "Clients expectations": "Challenge: Managing clients' expectations",
-    "TAQ": "Using TAQ / Technograph",
-    "Maintaining anonymity": "Anonymity: Preserving",
   }
 
+  # Example of codes to dump
   dumped = [urlSafe( stripQuotesSpace( k ) ) for k in [
-    "Client concern",
-    "footprint",
-    "translator",
     "Devices",
-    "Social media accounts",
-    "Client confirms intake",
-    "Email accounts",
-    "Cloud accounts",
   ]]
 
   # First remove dumped codes
