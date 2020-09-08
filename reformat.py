@@ -18,6 +18,7 @@ from util import urlSafe, mergeCodes, stripQuotesSpace
 
 
 def sanitize(txt):
+    # Hack for weird output problem on CSCW19
     # quotes = ["'", '"']
     # if len(txt) > 0:
     #     if (txt[0] in quotes and txt[1] == 'b' and txt[2] in quotes) or (txt[0] == 'b' and txt[1] in quotes):

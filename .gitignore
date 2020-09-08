@@ -5,8 +5,7 @@ Icon
 .DS_Store
 
 *.csv
-all_csvs/
-tech_csvs/
+csvs/
 outputs/html/*.html
 outputs/csv/*.csv
 
