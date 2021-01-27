@@ -1,3 +1,10 @@
+#!/usr/bin/python3
+import sys
+
+if sys.version_info[0] != 3:
+  print("This script requires Python version 3")
+  sys.exit(1)
+
 """
 reformat.py
 -----------
@@ -33,19 +40,15 @@ def add_line(line, outfile_name, num_codes, allCodes, codeCorrections):
         comma_split = line.strip().split(',')
         # Hacks for codes that contained commas for the Remote Clinic study
         if 'Consultant unfamiliarity with specific platforms' in line:
-            # print "\nbefore: ", comma_split
             i = comma_split.index('"Consultant unfamiliarity with specific platforms (e.g. Android vs. iOS')
             joined_code = " / ".join(comma_split[i:i+2])
             comma_split[i] = joined_code
             comma_split = comma_split[:i+1] + comma_split[i+2:]
-            # print "after: ", comma_split, "\n"
         if 'Consultant unfamiliarity with specific apps' in line:
-            # print "\nbefore: ", comma_split
             i = comma_split.index('"Consultant unfamiliarity with specific apps / social media (e.g. Waze')
             joined_code = " / ".join(comma_split[i:i+4])
             comma_split[i] = joined_code
             comma_split = comma_split[:i+1] + comma_split[i+4:]
-            # print "after: ", comma_split, "\n"
         # General code merging
         codes = comma_split[-num_codes:]
         merged_codes = list()
@@ -84,7 +87,7 @@ def reformat(in_folder_name, out_folder_name, codes, codeCorrections):
                 outfile_name = out_folder_name + \
                     urlSafe("{}.csv".format(participantID))
                 with open(outfile_name, mode="w+") as outfile:
-                    print '\ncreating ' + outfile_name
+                    print("\ncreating " + outfile_name)
                 outfile.close()
                 for i, line in enumerate(infile):
                     if line.replace(',', '').strip() == '':
@@ -92,7 +95,7 @@ def reformat(in_folder_name, out_folder_name, codes, codeCorrections):
                     elif i == 0:
                     # Use the first line to get the number of commas in the header row to get the variable number of tags.
                         num_codes = len(line.split(',')[1:]) - 1
-                        print outfile_name + ' num_codes: {}'.format(num_codes)
+                        print(outfile_name + ' num_codes: {}'.format(num_codes))
                     else:
                         codeCorrections = add_line(line, outfile_name, num_codes, codes, codeCorrections)
             infile.close()
@@ -121,7 +124,7 @@ if __name__ == "__main__":
     except OSError as exception:
         if exception.errno != errno.EEXIST:
             if(not os.path.isdir(outputdir)):
-                print "Error: outputdir specified as", outputdir, "exists but is not a directory"
+                print("Error: outputdir specified as", outputdir, "exists but is not a directory")
                 raise
 
     # Then the inputdir
@@ -130,7 +133,7 @@ if __name__ == "__main__":
     except OSError as exception:
         if exception.errno != errno.EEXIST:
             if(not os.path.isdir(outputdir)):
-                print "Error: inputdir specified as", outputdir, "exists but is not a directory"
+                print("Error: inputdir specified as", outputdir, "exists but is not a directory")
                 raise
 
     # Then extract codes from the codebook
@@ -144,5 +147,5 @@ if __name__ == "__main__":
             code = urlSafe(stripQuotesSpace( row[0] ))
             if( code != '' ):
                 codes.append( code )
-    
+
     reformat(inputdir, outputdir, codes, codeCorrections)

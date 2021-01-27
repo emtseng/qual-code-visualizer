@@ -1,3 +1,10 @@
+#!/usr/bin/python3
+import sys
+
+if sys.version_info[0] != 3:
+	print("This script requires Python version 3")
+	sys.exit(1)
+
 from collections import defaultdict
 import operator
 import markup
@@ -9,6 +16,7 @@ from util import urlSafe
 ################################################################################
 # HTML generators
 ################################################################################
+
 
 def genIndex(threads, outputdir, codeCounts, project_title):
 	""" Generates an index linking to all the main pages.
@@ -23,14 +31,13 @@ def genIndex(threads, outputdir, codeCounts, project_title):
 							'posters': <set> of the distinct posters who said something with this code,
 						}
 						...
-					} 
+					}
 				project_title <str>: used to generate the page title in the format "<project_title>: Coded Transcripts"
 			Outputs:
 				Writes index to file, does not return
 	"""
 
-	freqSortedCodes = sorted(codeCounts.items(), cmp=lambda x, y: cmp(
-            len(x['threads']), len(y['threads'])), key=operator.itemgetter(1), reverse=True)
+	freqSortedCodes = sorted(codeCounts.items(), key=lambda tup: len(tup[1]['threads']), reverse=True)
 
 	with open(outputdir + '/html/' + 'index.html', 'w') as outFile:
 		header = "{}: Coded Transcripts".format(project_title)
@@ -56,7 +63,7 @@ def genIndex(threads, outputdir, codeCounts, project_title):
 			page.div(class_="index-code")
 			page.a(code, href=urlSafe(code) + '.html')
 			page.add(' &nbsp;&nbsp;(quotes={}, interviews={})'.format(
-                            post_count, thread_count))
+														post_count, thread_count))
 			page.div.close()
 			#page.add('&nbsp;&nbsp;-&nbsp;&nbsp;')
 		page.td.close()
@@ -102,18 +109,19 @@ def genHistograms(threads, outputdir, codeCounts, project_title):
 							'posters': <set> of the distinct posters who said something with this code,
 						}
 						...
-					} 
+					}
 				project_title <str>: used to generate the page title in the format "<project_title>: Coded Transcripts"
 			Outputs:
 				Writes index to file, does not return
 	"""
-	freqSortedCodeCounts = sorted(codeCounts.items(), cmp=lambda x, y: cmp(len(x['posters']), len(y['posters'])), key=operator.itemgetter(1), reverse=True)
+	freqSortedCodeCounts = sorted(
+		codeCounts.items(), key=lambda tup: len(tup[1]['threads']), reverse=True)
 
 	with open(outputdir + '/html/' + 'histograms.html', mode='w+') as outFile:
 		header = "{}: Histograms".format(project_title)
 		page = markup.page()
 		page = genHeaderMenu(page, header)
-		
+
 		page.table(style="width: 100%", id_="histograms-table")
 
 		page.tr(class_="table-header")
@@ -147,6 +155,7 @@ def genHistograms(threads, outputdir, codeCounts, project_title):
 
 # Generators for code page
 
+
 def genCodePostsHTML(threads, outputdir, code, project_title):
 	""" Generates the posts tab of a code page """
 
@@ -158,7 +167,8 @@ def genCodePostsHTML(threads, outputdir, code, project_title):
 		page.div(class_="submenu")
 		page.a("quotes", color="blue", href="{}.html".format(urlSafe(code)))
 		page.add("&nbsp;&nbsp;-&nbsp;&nbsp;")
-		page.a("interviews", color="blue", href="{}_interviews.html".format(urlSafe(code)))
+		page.a("interviews", color="blue",
+					 href="{}_interviews.html".format(urlSafe(code)))
 		page.div.close()
 
 		page.table(style="width: 100%; table-layout: fixed; max-width: 90vw")
@@ -178,6 +188,7 @@ def genCodePostsHTML(threads, outputdir, code, project_title):
 
 		outFile.write(str(page))
 
+
 def genCodePostsHTMLReddit(threads, outputdir, code, project_title):
 	""" Generates the posts tab of a code page """
 
@@ -189,7 +200,8 @@ def genCodePostsHTMLReddit(threads, outputdir, code, project_title):
 		page.div(class_="submenu")
 		page.a("quotes", color="blue", href="{}.html".format(urlSafe(code)))
 		page.add("&nbsp;&nbsp;-&nbsp;&nbsp;")
-		page.a("interviews", color="blue", href="{}_interviews.html".format(urlSafe(code)))
+		page.a("interviews", color="blue",
+					 href="{}_interviews.html".format(urlSafe(code)))
 		page.div.close()
 
 		page.table(style="width: 100%; table-layout: fixed; max-width: 90vw")
@@ -209,6 +221,7 @@ def genCodePostsHTMLReddit(threads, outputdir, code, project_title):
 
 		outFile.write(str(page))
 
+
 def genCodeThreadsHTML(threads, outputdir, code, project_title):
 	""" Generates the threads tab of a code page """
 
@@ -217,12 +230,13 @@ def genCodeThreadsHTML(threads, outputdir, code, project_title):
 		page = markup.page()
 		page = genHeaderMenu(page, header)
 
-		sorted_threads = sorted([thread for thread in threads if code in thread.codeHistogram], cmp=lambda x, y: cmp(x.codeHistogram[code], y.codeHistogram[code]), reverse=True)
+		sorted_threads = sorted([thread for thread in threads if code in thread.codeHistogram], key=lambda thread: thread.codeHistogram[code], reverse=True)
 
 		page.div(class_="submenu")
 		page.a("quotes", color="blue", href="{}.html".format(urlSafe(code)))
 		page.add("&nbsp;&nbsp;-&nbsp;&nbsp;")
-		page.a("interviews (n={})".format(len(sorted_threads)), color="blue", href="{}_interviews.html".format(urlSafe(code)))
+		page.a("interviews (n={})".format(len(sorted_threads)),
+					 color="blue", href="{}_interviews.html".format(urlSafe(code)))
 		page.div.close()
 
 		page.table(style="width: 100%; table-layout: fixed; max-width: 90vw")
@@ -246,10 +260,12 @@ def genCodeThreadsHTML(threads, outputdir, code, project_title):
 
 		outFile.write(str(page))
 
+
 def genCodeHTML(threads, outputdir, code, project_title):
 	""" Searches through all threads and extracts all references to each code, writes to an HTML output """
 	genCodePostsHTML(threads, outputdir, code, project_title)
 	genCodeThreadsHTML(threads, outputdir, code, project_title)
+
 
 def genCodeHTMLReddit(threads, outputdir, code, project_title):
 	""" Searches through all threads and extracts all references to each code, writes to an HTML output """
@@ -280,6 +296,7 @@ def genCodePerTransHTML(threads, outputdir, code):
 # Poster page generators
 ################################################################################
 
+
 def genPosterCodesHTML(poster, outputdir):
 	""" For a given poster, generate their codes page """
 	username = urlSafe(poster.name)
@@ -309,7 +326,7 @@ def genPosterCodesHTML(poster, outputdir):
 		page.th("count")
 		page.tr.close()
 
-		freq_sorted_code_counts = sorted(poster.codes.items(), cmp=lambda x, y: cmp(x, y), key= operator.itemgetter(1), reverse=True)
+		freq_sorted_code_counts = sorted(poster.codes.items(), key=lambda tup: tup[1], reverse=True)
 
 		for code, count in freq_sorted_code_counts:
 			page.tr(class_="poster-code")
@@ -318,10 +335,11 @@ def genPosterCodesHTML(poster, outputdir):
 			page.td.close()
 			page.td(count)
 			page.tr.close()
-		
+
 		page.table.close()
 		outfile.write(str(page))
 	outfile.close()
+
 
 def genPosterThreadsHTML(poster, outputdir):
 	""" For a given poster, generate their threads page """
@@ -353,10 +371,11 @@ def genPosterThreadsHTML(poster, outputdir):
 			page.a(thread_title, href="{}.html".format(urlSafe(thread_title)))
 			page.td.close()
 			page.tr.close()
-		
+
 		page.table.close()
 		outfile.write(str(page))
 	outfile.close()
+
 
 def genPosterPostsHTML(poster, outputdir):
 	""" For a given poster, generate their posts page """
@@ -384,10 +403,11 @@ def genPosterPostsHTML(poster, outputdir):
 
 		for post in poster.posts:
 			post.printHTML(page, codeLinkTo="this_interview")
-		
+
 		page.table.close()
 		outfile.write(str(page))
 	outfile.close()
+
 
 def genPosterHTML(posters, outputdir):
 	""" For each poster, output a page showing their codes, threads and posts """
@@ -424,19 +444,19 @@ def genCodeCounts(codeCounts, outputdir):
 
 	with open(outputdir + '/csv/code_counts.csv', mode="w") as outfile:
 		outfile.write('code,interview_count,quote_count,speaker_count\n')
-		freq_sorted_code_counts = sorted(codeCounts.items(), cmp=lambda x, y: cmp(
-                    len(x['threads']), len(y['threads'])), key=operator.itemgetter(1), reverse=True)
+		freq_sorted_code_counts = sorted(codeCounts.items(), key=lambda tup: len(tup[1]), reverse=True)
 		for code, counts in freq_sorted_code_counts:
 			interview_count = len(counts['threads'])
 			quote_count = counts['posts']
 			speaker_count = len(counts['posters'])
 			outfile.write("{},{},{},{}\n".format(
-                            code, interview_count, quote_count, speaker_count))
+											code, interview_count, quote_count, speaker_count))
 	outfile.close()
 
 ################################################################################
 # HTML formatting generators
 ################################################################################
+
 
 def genStylesheet(outputdir):
 	""" Copies the main stylesheet into the output's html folder """
@@ -446,6 +466,7 @@ def genStylesheet(outputdir):
 	output_file = "{}/html/{}".format(outputdir, "layout.css")
 
 	shutil.copyfile(master_layout_file, output_file)
+
 
 def genHeaderMenu(page, header):
 	""" Writes the header and menu to the top of each page. Returns the page instance.

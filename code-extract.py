@@ -1,4 +1,10 @@
-#!/usr/bin/python
+#!/usr/bin/python3
+import sys
+
+if sys.version_info[0] != 3:
+  print("This script requires Python version 3")
+  sys.exit(1)
+
 # Some simple code to parse CSV files from coding.
 # Usage is:
 #    code-extract.py [update] outputdir codebook.csv [master.csv] [transcript1.csv transcript2.csv ...]
@@ -25,21 +31,13 @@
 # args[transcripts] can also take the form of a path, i.e. 'csv/'. The script will
 # check for it and adjust accordingly. Note that only 1 directory is accepted for now.
 #
-# TODO: fix below
-# The script processes the file, building a dictionary indexed by codeword and
-# that contains `Name', 'text' pairs. It outputs this as a CSV to output.csv
-# The format for output CSV is codeword
-#
+
 
 import os
 import errno
 import csv
-#import unicodecsv
 import argparse
 from collections import namedtuple, defaultdict
-#import lxml.html
-#from lxml.html import builder as E
-#from yattag import doc
 import markup
 import operator
 from pathlib import Path
@@ -128,7 +126,7 @@ class Thread(object):
   def toHTML(self):
     """ Prints HTML for this thread to a file in output directory """
     filename = "{}/html/{}.html".format(self.outFileDir, self.outFileBase)
-    print 'writing interview: ', filename
+    print('writing interview: ', filename)
     with open( filename, 'w' ) as outFile:   # Should be of form, e.g., Johnson.html
       header = self.outFileBase
       page = markup.page()
@@ -188,17 +186,17 @@ class Poster(object):
     self.threads = set()
     self.posts = list()
     self.codes = defaultdict(int)
-  
+
   def addToThreads(self, thread_title):
     self.threads.add(thread_title)
-  
+
   def addToPosts(self, post):
     self.posts.append(post)
 
   def addToCodeCounts(self, codes):
     for code in codes:
       self.codes[code] += 1
-  
+
 
 ################################################################################
 # Generate and read master CSVs. These contain all posts from all posts
@@ -262,7 +260,7 @@ def readGeneratedCSVs( masterFilename, threads, codes, outputdir, codeCountsPerP
       for row in transReader:
         threadTitle = row['threadTitle']
         if( threadTitle not in threads ):
-          print "Error: couldn't find interview " + threadTitle + " for entry in " + thread.title
+          print("Error: couldn't find interview {} for entry in {}".format(threadTitle, thread.title))
         else:
           # Find post within thread
           found = False
@@ -276,7 +274,7 @@ def readGeneratedCSVs( masterFilename, threads, codes, outputdir, codeCountsPerP
               else:
                 post.codes = []
           if( not found ):
-            print "Error: couldn't find post " + row['postID'] + " for entry in " + thread.title
+            print("Error: couldn't find post " + row['postID'] + " for entry in " + thread.title)
 
   threadList = sorted(threads.values(), key=lambda x: x.title)
 
@@ -317,7 +315,7 @@ def readOriginalCSVs( originalCSVs, allCodes, outputdir, codeCounts ):
             if( strippedCode not in allCodes):
               correctedCode, allCodeCorrections = mergeCodes( strippedCode, allCodes, allCodeCorrections, skip=True ) #set skip to false to correct codes to nearest code by edit distance
               if( correctedCode == '' ):
-                print "Skipping unrecognized code in '" + strippedCode + "' in file " + thread.title + " that could not be merged"
+                print("Skipping unrecognized code in '" + strippedCode + "' in file " + thread.title + " that could not be merged")
                 continue
               strippedCode = correctedCode
             strippedCodes.append( strippedCode )
@@ -336,7 +334,7 @@ def readOriginalCSVs( originalCSVs, allCodes, outputdir, codeCounts ):
           # Process poster
           if poster not in allPosters:
             allPosters[poster] = Poster(poster)
-          
+
           allPosters[poster].addToPosts(post)
           allPosters[poster].addToThreads(thread.title)
           allPosters[poster].addToCodeCounts(strippedCodes)
@@ -364,7 +362,7 @@ def main():
   outputdir = args['outputdir']
   if outputdir[-1] == '/':
     outputdir = outputdir[:-1]
-  
+
   project_title = args['project']
 
   # Check outputdir, make subfolders
@@ -374,7 +372,7 @@ def main():
   except OSError as exception:
     if exception.errno != errno.EEXIST:
       if( not os.path.isdir(outputdir) ):
-        print "Error: outputdir specified as", outputdir, "exists but is not a directory"
+        print("Error: outputdir specified as", outputdir, "exists but is not a directory")
         raise
 
 
@@ -402,10 +400,10 @@ def main():
       # Are we analyzing an entire directory?
       if transcripts_path.is_dir():
         originalCSVs = [args['transcripts'][0] + path.name for path in Path(args['transcripts'][0]).glob('*.csv')]
-        print 'Processing directory: ', originalCSVs
+        print('Processing directory: ', originalCSVs)
       else:
         originalCSVs = args['transcripts']
-      
+
       # Read the original CSVs
       threads, codeCounts, posters = readOriginalCSVs( originalCSVs, codes, outputdir, codeCounts )
 
@@ -444,7 +442,7 @@ def main():
     genStylesheet( outputdir )
 
     # Print a direct link to the index file for viewing
-    print '\nDone! View output at: {}'.format(os.path.abspath(outputdir+'/html/index.html'))
+    print('\nDone! View output at: {}'.format(os.path.abspath(outputdir+'/html/index.html')))
 
 if __name__ == '__main__':
   main()

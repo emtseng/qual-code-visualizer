@@ -4,15 +4,17 @@ This repo contains a visualizer for a qualitatively coded dataset. Given a codeb
 
 This repo is templatable, so have at it.
 
-TODO: Convert to python3
+Last updated Jan. 26, 2021 by @emtseng
+- Updated to python3
+- Added sys checks at the top of each active script for python3
 
 ## 0) Setup
 
-We'll run this tool in a python virtualenv. Ensure you have a python2 installation. Then:
+We'll run this tool in a python virtualenv. Ensure you have a python3 installation. Then:
 
 ```cli
-virtualenv -p <path to your python2, for instance /usr/bin/python> py27
-source py27/bin/activate
+virtualenv -p <path to your python3, for instance /usr/bin/python> py3
+source py3/bin/activate
 pip install -r requirements.txt
 ```
 

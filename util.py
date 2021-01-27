@@ -20,7 +20,7 @@ def stripQuotesSpace( string ):
 
 def mergeCodes( code, codes, codeCorrections, skip=False ):
   """
-    If an unrecognized code is found in a transcript file, check for nearby ones by edit distance. 
+    If an unrecognized code is found in a transcript file, check for nearby ones by edit distance.
     Customizable by project.
 
     :param code: slugified code
@@ -30,7 +30,7 @@ def mergeCodes( code, codes, codeCorrections, skip=False ):
   """
   # If you've seen this codeCorrection in your cache, use the cached correction
   if( code in codeCorrections ):
-    # print "Using '" + codeCorrections[code] + "' instead of '" + code + "'"
+    print("Using {} instead of {}".format(codeCorrections[code],code))
     code = codeCorrections[code]
     return code, codeCorrections
 
@@ -59,10 +59,10 @@ def mergeCodes( code, codes, codeCorrections, skip=False ):
     if slugged in code:
       new_code = urlSafe( stripQuotesSpace( v ) )
       codeCorrections[code] = new_code
-      print "Replacing '" + code + "' with '" + new_code + "'"
+      print("Replacing {} with {}".format(code, new_code))
       return new_code, codeCorrections
 
-  #print "Unrecognized code: ", code
+  #print("Unrecognized code: ", code)
   distances = {}
   for possibleCode in codes:
     distances[editdistance.eval( code, possibleCode )] = possibleCode
@@ -72,7 +72,7 @@ def mergeCodes( code, codes, codeCorrections, skip=False ):
     #  break
     #answer = raw_input("Should '" + code + "' have been '" + distances[key] + "'?  [y/N] ")
     #if( answer == 'y' or answer == 'Y' ):
-    print "Replacing '"+ code +"' with '" + distances[key] + "'"
+    print("Replacing {} with {}".format(code, distances[key]))
     codeCorrections[code] = distances[key]
     code = distances[key]
     return code, codeCorrections  # It's always working well with edit distance, so let's just do it without asking
