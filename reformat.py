@@ -25,7 +25,7 @@ from util import urlSafe, mergeCodes, stripQuotesSpace
 
 
 def sanitize(txt):
-    # Hack for weird output problem on CSCW19
+    # Hack for weird output problems on an old dataset with quotes in the wrong place
     # quotes = ["'", '"']
     # if len(txt) > 0:
     #     if (txt[0] in quotes and txt[1] == 'b' and txt[2] in quotes) or (txt[0] == 'b' and txt[1] in quotes):
@@ -39,16 +39,12 @@ def add_line(line, outfile_name, num_codes, allCodes, codeCorrections):
     with open(outfile_name, mode="a+") as outfile:
         comma_split = line.strip().split(',')
         # Hacks for codes that contained commas for the Remote Clinic study
+        # Retaining to highlight an example of what to do if you code too liberally
         if 'Consultant unfamiliarity with specific platforms' in line:
             i = comma_split.index('"Consultant unfamiliarity with specific platforms (e.g. Android vs. iOS')
             joined_code = " / ".join(comma_split[i:i+2])
             comma_split[i] = joined_code
             comma_split = comma_split[:i+1] + comma_split[i+2:]
-        if 'Consultant unfamiliarity with specific apps' in line:
-            i = comma_split.index('"Consultant unfamiliarity with specific apps / social media (e.g. Waze')
-            joined_code = " / ".join(comma_split[i:i+4])
-            comma_split[i] = joined_code
-            comma_split = comma_split[:i+1] + comma_split[i+4:]
         # General code merging
         codes = comma_split[-num_codes:]
         merged_codes = list()

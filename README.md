@@ -45,7 +45,7 @@ where `Name: text` is a string for some text that Name has said, and each code i
 
 The transcripts will need to be reformatted for use in the code extractor. To do this, run:
 ```cli
-python reformat.py -i <input directory> -o <output directory>
+python reformat.py -i <input directory> -o <output directory> -c <codebook.csv>
 ```
 
 You should then use the reformatted transcripts in your output directory for step 3.
