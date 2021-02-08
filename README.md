@@ -59,9 +59,9 @@ python code-extract.py [update] <project title>  <output directory> <codebook> [
 python code-extract.py [update] <project title> <output directory> <codebook> [master.csv] <csv directory> ...
 ```
 
-`update` is optional, and specifies that the transcripts are already processed by `code-extract.py` previously. This will regenerate output HTML and CSVs by updating based on the CSVs included. All CSVs should be included if one wants to update.
+`update` is optional, and specifies that the transcripts are already processed by `code-extract.py` previously. This will regenerate output HTML and CSVs by updating based on the CSVs included. All CSVs should be included if one wants to update. *(You can also ignore this completely and just re-run it with new codebooks each time.)*
 
-`master.csv` is for doing updates. It contains all the quotes from all the interviews, and any other CSV is used to update values in that `master.csv`.
+`master.csv` is for doing updates. It contains all the quotes from all the interviews, and any other CSV is used to update values in that `master.csv`. *(You can also ignore this completely and just re-run it with new codebooks each time.)*
 
 The script will produce a folder of HTML in the output directory specified. Open the resulting ``outputdir/index.html`` in a browser to navigate through your codes.
 
