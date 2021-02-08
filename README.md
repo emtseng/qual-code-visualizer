@@ -37,9 +37,9 @@ where codes are (possibly quote-surrounded) strings and descriptions are (possib
 
 Place your transcripts either in your top-level directory or in a directory (e.g. `csvs/`) at the top level. They should be CSVs formatted as:
 ```csv
-Name: text , code1 , code2 , ...
+Name, text , code1 , code2 , ...
 ```
-where `Name: text` is a string for some text that Name has said, and each code is a string.
+where `Name, text` is a string for some text that Name has said, and each code is a string. Note that your speaker (Name) and their utterance (text) must be separated by a comma for this to work.
 
 ## 2) Reformat transcripts
 

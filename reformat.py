@@ -49,7 +49,7 @@ def add_line(line, outfile_name, num_codes, allCodes, codeCorrections):
         codes = comma_split[-num_codes:]
         merged_codes = list()
         for code in codes:
-            if code == "":
+            if code.strip() == "":
                 merged_code = ""
             else:
                 strippedCode = urlSafe(stripQuotesSpace( code ))
