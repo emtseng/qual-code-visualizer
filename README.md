@@ -39,7 +39,13 @@ Place your transcripts either in your top-level directory or in a directory (e.g
 ```csv
 Name, text , code1 , code2 , ...
 ```
-where `Name, text` is a string for some text that Name has said, and each code is a string. Note that your speaker (Name) and their utterance (text) must be separated by a comma for this to work.
+where `Name, text` is a string for some text that Name has said, and each code is a string. 
+
+Note that:
+
+* the files should have the header described above (`Name, text, code1, code2, ...,`)
+* the your speaker (Name) and their utterance (text) must be separated by a comma
+* and the number of cells per line should match the number of codes described in the header for this to work.
 
 ## 2) Reformat transcripts
 
@@ -52,10 +58,10 @@ You should then use the reformatted transcripts in your output directory for ste
 
 ## 3) Run codes
 
-This repo contains a script (``code-extract.py``) that will process either a directory of transcripts or a list of transcripts. Usage is as follows:
+This repo contains a script (``code-extract.py``) that will process either a directory of transcripts or a list of transcripts into html files for easy navagation. Usage is as follows:
 
 ```cli
-python code-extract.py [update] <project title>  <output directory> <codebook> [master.csv] <csv1> [<csv2>] ...
+python code-extract.py [update] <project title> <output directory> <codebook> [master.csv] <csv1> [<csv2>] ...
 python code-extract.py [update] <project title> <output directory> <codebook> [master.csv] <csv directory> ...
 ```
 
@@ -65,7 +71,7 @@ python code-extract.py [update] <project title> <output directory> <codebook> [m
 
 The script will produce a folder of HTML in the output directory specified. Open the resulting ``outputdir/index.html`` in a browser to navigate through your codes.
 
-## Shortcuts
+## Example Usage
 
 ```cli
 python reformat.py -i csvs/ -o reformatted-csvs/ -c codebook-combined-all.csv
