@@ -44,7 +44,7 @@ where `Name, text` is a string for some text that Name has said, and each code i
 Note that:
 
 * the files should have the header described above (`Name, text, code1, code2, ...,`)
-* the your speaker (Name) and their utterance (text) must be separated by a comma
+* the speaker (Name) and their utterance (text) must be separated by a comma
 * and the number of cells per line should match the number of codes described in the header for this to work.
 
 ## 2) Reformat transcripts
